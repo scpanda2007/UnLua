@@ -19,6 +19,7 @@
 #include "UnLuaModule.h"
 #include "ReflectionUtils/PropertyDesc.h"
 #include "Misc/EngineVersionComparison.h"
+#include "UObject/MetaData.h"
 
 static constexpr uint8 ScriptMagicHeader[] = {EX_StringConst, 'L', 'U', 'A', '\0', EX_UInt64Const};
 static constexpr size_t ScriptMagicHeaderSize = sizeof ScriptMagicHeader;
@@ -141,7 +142,7 @@ void ULuaFunction::Override(UFunction* Function, UClass* Class, bool bAddNew)
     check(Function && Class && !From.IsValid());
 
 #if WITH_METADATA
-    UMetaData::CopyMetadata(Function, this);
+    FMetaData::CopyMetadata(Function, this);
 #endif
 
     bActivated = false;

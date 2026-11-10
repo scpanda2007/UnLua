@@ -26,7 +26,7 @@ public class LuaRapidjson : ModuleRules
         bEnforceIWYU = false;
 #endif
         bUseUnity = false;
-        PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
+        PCHUsage = PCHUsageMode.NoPCHs;
         bEnableUndefinedIdentifierWarnings = false;
         bEnableExceptions = true;
 

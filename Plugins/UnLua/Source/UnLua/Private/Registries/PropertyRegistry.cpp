@@ -104,7 +104,6 @@ namespace UnLua
                 nullptr,
                 CPF_None,
                 UECodeGen_Private::EPropertyGenFlags::Bool | UECodeGen_Private::EPropertyGenFlags::NativeBool,
-                RF_Transient,
 #if UE_VERSION_OLDER_THAN(5, 3, 0)
                 1,
 #endif
@@ -142,7 +141,6 @@ namespace UnLua
                 nullptr,
                 CPF_HasGetValueTypeHash,
                 UECodeGen_Private::EPropertyGenFlags::Int,
-                RF_Transient,
 #if UE_VERSION_OLDER_THAN(5, 3, 0)
                 1,
 #endif
@@ -178,7 +176,6 @@ namespace UnLua
                 nullptr,
                 CPF_HasGetValueTypeHash,
                 UECodeGen_Private::EPropertyGenFlags::Float,
-                RF_Transient,
 #if UE_VERSION_OLDER_THAN(5, 3, 0)
                 1,
 #endif
@@ -214,7 +211,6 @@ namespace UnLua
                 nullptr,
                 CPF_HasGetValueTypeHash,
                 UECodeGen_Private::EPropertyGenFlags::Str,
-                RF_Transient,
 #if UE_VERSION_OLDER_THAN(5, 3, 0)
                 1,
 #endif
@@ -250,7 +246,6 @@ namespace UnLua
                 nullptr,
                 CPF_HasGetValueTypeHash,
                 UECodeGen_Private::EPropertyGenFlags::Name,
-                RF_Transient,
 #if UE_VERSION_OLDER_THAN(5, 3, 0)
                 1,
 #endif
@@ -286,7 +281,6 @@ namespace UnLua
                 nullptr,
                 CPF_HasGetValueTypeHash,
                 UECodeGen_Private::EPropertyGenFlags::Text,
-                RF_Transient,
 #if UE_VERSION_OLDER_THAN(5, 3, 0)
                 1,
 #endif
@@ -330,7 +324,6 @@ namespace UnLua
                 nullptr,
                 CPF_HasGetValueTypeHash,
                 UECodeGen_Private::EPropertyGenFlags::Object,
-                RF_Transient,
 #if UE_VERSION_OLDER_THAN(5, 3, 0)
                 1,
 #endif
@@ -365,7 +358,6 @@ namespace UnLua
                     ? ScriptStruct->GetCppStructOps()->GetComputedPropertyFlags() | CPF_HasGetValueTypeHash
                     : CPF_HasGetValueTypeHash,
                 UECodeGen_Private::EPropertyGenFlags::Struct,
-                RF_Transient,
 #if UE_VERSION_OLDER_THAN(5, 3, 0)
                 1,
 #endif
@@ -390,12 +382,13 @@ namespace UnLua
         }
         else if (const auto Enum = Cast<UEnum>(Field))
         {
-            const auto EnumProperty = new FEnumProperty(PropertyCollector, NAME_None, RF_Transient, 0, CPF_HasGetValueTypeHash, Enum);
-            const auto UnderlyingProperty = new FByteProperty(EnumProperty, TEXT("UnderlyingType"), RF_Transient);
+            const auto EnumProperty = new FEnumProperty(PropertyCollector, NAME_None);
+            EnumProperty->SetEnum(Enum);
+            const auto UnderlyingProperty = new FByteProperty(EnumProperty, TEXT("UnderlyingType"));
             Property = EnumProperty;
             Property->AddCppProperty(UnderlyingProperty);
-            Property->ElementSize = UnderlyingProperty->ElementSize;
-            Property->PropertyFlags |= CPF_IsPlainOldData | CPF_NoDestructor | CPF_ZeroConstructor;
+            Property->SetElementSize(UnderlyingProperty->GetElementSize());
+            Property->SetPropertyFlags(CPF_HasGetValueTypeHash | CPF_IsPlainOldData | CPF_NoDestructor | CPF_ZeroConstructor);
         }
         else
         {
