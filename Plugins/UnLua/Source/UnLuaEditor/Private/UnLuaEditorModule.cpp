@@ -28,7 +28,10 @@
 #include "Kismet2/DebuggerCommands.h"
 #include "Interfaces/IMainFrameModule.h"
 #include "Interfaces/IPluginManager.h"
-#include "Settings/ProjectPackagingSettings.h"
+#include "HAL/FileManager.h"
+#include "Misc/ConfigCacheIni.h"
+#include "Misc/FileHelper.h"
+#include "Misc/Paths.h"
 #include "Toolbars/AnimationBlueprintToolbar.h"
 #include "Toolbars/BlueprintToolbar.h"
 #include "Toolbars/MainMenuToolbar.h"
@@ -185,7 +188,7 @@ private:
 
     void SetupPackagingSettings()
     {
-        auto ScriptPaths = TArray<FString>{TEXT("Script"), TEXT("../Plugins/UnLua/Content/Script")};
+        auto ScriptPaths = TArray<FString>{TEXT("Script")};
 
         const auto Plugins = IPluginManager::Get().GetEnabledPlugins();
         for (const auto Plugin : Plugins)
@@ -194,7 +197,7 @@ private:
                 continue;
 
             const auto ContentDir = Plugin->GetContentDir();
-            if (!ContentDir.Contains("UnLuaExtensions"))
+            if (Plugin->GetName() != TEXT("UnLua") && !ContentDir.Contains(TEXT("UnLuaExtensions")))
                 continue;
 
             auto ScriptPath = ContentDir / "Script";
@@ -202,39 +205,50 @@ private:
                 continue;
 
             if (FPaths::MakePathRelativeTo(ScriptPath, *FPaths::ProjectContentDir()))
-                ScriptPaths.Add(ScriptPath);
+                ScriptPaths.AddUnique(ScriptPath);
         }
 
-        const auto PackagingSettings = GetMutableDefault<UProjectPackagingSettings>();
-        bool bModified = false;
-        auto Exists = [&](const auto Path)
+        // The game Target selects this layer for non-Shipping builds. Never update
+        // the packaging settings CDO or the project's base DefaultGame.ini here.
+        const FString ConfigFilePath = FPaths::ConvertRelativePathToFull(
+            FPaths::ProjectConfigDir() / TEXT("Custom/UnLua/DefaultGame.ini"));
+        FString ConfigText;
+        if (FPaths::FileExists(ConfigFilePath) && !FFileHelper::LoadFileToString(ConfigText, *ConfigFilePath))
         {
-            for (const auto& DirPath : PackagingSettings->DirectoriesToAlwaysStageAsUFS)
-            {
-                if (DirPath.Path == Path)
-                    return true;
-            }
-            return false;
-        };
+            UE_LOG(LogUnLua, Error, TEXT("Could not read UnLua CustomConfig: %s"), *ConfigFilePath);
+            return;
+        }
 
-        for (auto& ScriptPath : ScriptPaths)
+        const TCHAR* SectionName = TEXT("/Script/UnrealEd.ProjectPackagingSettings");
+        const TCHAR* ArrayName = TEXT("DirectoriesToAlwaysStageAsUFS");
+        FConfigFile CustomConfig;
+        CustomConfig.CombineFromBuffer(ConfigText, ConfigFilePath);
+        TArray<FString> ExistingPaths;
+        CustomConfig.GetArray(SectionName, ArrayName, ExistingPaths);
+
+        FString Additions;
+        for (const FString& ScriptPath : ScriptPaths)
         {
-            if (Exists(ScriptPath))
+            const FString Value = FString::Printf(TEXT("(Path=\"%s\")"), *ScriptPath.ReplaceCharWithEscapedChar());
+            if (ExistingPaths.Contains(Value))
                 continue;
 
-            FDirectoryPath DirectoryPath;
-            DirectoryPath.Path = ScriptPath;
-            PackagingSettings->DirectoriesToAlwaysStageAsUFS.Add(DirectoryPath);
-            bModified = true;
+            Additions += FString::Printf(TEXT("+%s=%s\n"), ArrayName, *Value);
+            ExistingPaths.Add(Value);
         }
+        if (Additions.IsEmpty())
+            return;
 
-        if (bModified)
+        // Append a section so existing text, array operations and unrelated settings
+        // in the custom layer are preserved. Repeated INI sections are merged by UE.
+        if (!ConfigText.IsEmpty() && !ConfigText.EndsWith(TEXT("\n")))
+            ConfigText += TEXT("\n");
+        ConfigText += FString::Printf(TEXT("\n[%s]\n%s"), SectionName, *Additions);
+
+        if (!IFileManager::Get().MakeDirectory(*FPaths::GetPath(ConfigFilePath), true) ||
+            !FFileHelper::SaveStringToFile(ConfigText, *ConfigFilePath, FFileHelper::EEncodingOptions::ForceUTF8WithoutBOM))
         {
-#if ENGINE_MAJOR_VERSION >= 5
-            PackagingSettings->TryUpdateDefaultConfigFile();
-#else
-            PackagingSettings->UpdateDefaultConfigFile();
-#endif
+            UE_LOG(LogUnLua, Error, TEXT("Could not write UnLua CustomConfig: %s"), *ConfigFilePath);
         }
     }
 
