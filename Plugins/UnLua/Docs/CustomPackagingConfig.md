@@ -28,23 +28,19 @@ continue to stage Lua files in Shipping even without the custom layer. This
 migration does not remove existing project settings or claim a verified Shipping
 package. No Shipping package verification is claimed. Validation facts are recorded below.
 
-## UE511 collector refresh before building Editor
+## Project-owned UBT collector workaround
 
-From the host project, with PowerShell 7:
+The collector refresh workaround is specific to the Plague host's custom build
+tools. It belongs to `PlagueTests/Tools/Refresh-UbtPlugin.ps1`, not the generic
+UnLua package. Use the PlagueTests installation guide for the optional pre-build
+entry through `npv unrealcmd dotnet build`; unrealcmd resolves the host engine
+and its bundled dotnet. No EngineDir argument or duplicate UE/SDK detection is
+needed. NPV tool locations remain unchanged, with local EXEs reserved as a
+fallback. This does not change the original automatic UBT/UHT exporter trigger
+or automatically hook the workaround into packaging.
 
-```powershell
-pwsh -NoProfile -File .\Plugins\UnLua\Tools\Refresh-UbtPlugin.ps1 -EngineDir 'D:\Home_Plague\Engine\Engine'
-```
-
-Use the actual plugin installation path. The script resolves the engine-bundled
-.NET 6.0.302 and builds the UBT collector outside UBT before the normal Editor
-build. It deploys the three designated GeneratedDlls tools to Binaries before
-starting .NET, skips identical files, and verifies the designated source hashes
-are unchanged. It does not rename engine directories, patch engine source, kill
-processes, fabricate build records, or disable default-parameter collection.
-
-The host Target integration and old base-INI migration are manual steps. Updating
-the plugin does not enable a custom layer or remove existing project settings.
+The UnLua change itself remains limited to writing Lua staging entries into the
+opt-in custom INI. Target integration and old base-INI migration remain manual.
 
 ## Validation for 5.1.1-rdo.2
 
